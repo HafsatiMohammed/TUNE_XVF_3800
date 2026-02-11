@@ -1,0 +1,59 @@
+device:
+  xvf_host_path: "/usr/local/bin/xvf_host"
+  protocol: "usb"
+  sudo: true
+
+io:
+  physical_fs_hz: 48000
+  pack_factor: 3
+  logical_fs_hz: 16000
+
+audio:
+  # ALSA device names on the machine running tuning
+  playback_device: "default"
+  capture_device: "default"
+
+  # reference injection mapping INTO YOUR SYSTEM INPUT STREAM
+  # Example: put reference in Left physical channel, logical slot 0
+  reference_physical: "L"     # "L" or "R"
+  reference_slot: 0           # 0,1,2
+tuning:
+  ref_peak_target_dbfs: -1.5
+  ref_peak_max_dbfs: -0.5
+  mic_margin_db: 6.0
+  silence_level_margin_percent: 2.0
+
+  sys_delay_target_samples_logical: 30
+  sys_delay_max_samples_logical: 40
+  sys_delay_max_iters: 6
+
+  phase2:
+    # Echo performance targets (objective)
+    erle_target_db: 18.0              # ERLE proxy >= this in far-end-only
+    resid_to_mic_max_db: -15.0        # 10log10(P_resid/P_mic) <= -15dB
+    near_end_presence_min_db: 6.0     # mic power rise in DT vs FE must be >= this, else operator didn't speak loud enough
+    dt_beam_rise_min_db: 3.0          # beam power rise in DT vs FE should be >= this; if not => near-end suppression too strong
+
+  phase3:
+    # Usability targets (objective)
+    speech_rms_target_dbfs: -25.0
+    speech_rms_tol_db: 3.0
+    pause_noise_max_dbfs: -45.0
+    pumping_std_max_db: 3.0           # std dev of short-term RMS in silence, dB
+
+segments:
+  phase2:
+    far_end_only_1: [0.0, 10.0]
+    double_talk:   [10.0, 22.0]
+    far_end_only_2: [22.0, -1.0]     # -1 means until end
+
+  phase3:
+    talk1:   [0.0, 15.0]
+    silence: [15.0, 25.0]
+    talk2:   [25.0, 35.0]
+
+params:
+  ref_gain_param: "AUDIO_MGR_REF_GAIN"
+  mic_gain_param: "AUDIO_MGR_MIC_GAIN"
+  sys_delay_param: "AUDIO_MGR_SYS_DELAY"
+  aec_silence_param: "AEC_AECSILENCELEVEL"

@@ -1,0 +1,65 @@
+phase1_gain_delay:
+  commands:
+    - ["AUDIO_MGR_OP_PACKED", 1, 1]
+    - ["AUDIO_MGR_OP_L",     3, 0]
+    - ["AUDIO_MGR_OP_L_PK1", 3, 1]
+    - ["AUDIO_MGR_OP_L_PK2", 3, 2]
+    - ["AUDIO_MGR_OP_R",     3, 3]
+    - ["AUDIO_MGR_OP_R_PK1", 12, 0]
+    - ["AUDIO_MGR_OP_R_PK2", 5, 0]
+  labels:
+    L0: "mic0_postgain"
+    L1: "mic1_postgain"
+    L2: "mic2_postgain"
+    R0: "mic3_postgain"
+    R1: "ref_postgain"
+    R2: "ref_loopback"
+
+phase1_ref_pre_post_only:
+  commands:
+    - ["AUDIO_MGR_OP_PACKED", 1, 1]
+    - ["AUDIO_MGR_OP_L",      4, 0]
+    - ["AUDIO_MGR_OP_R",     12, 0]
+  labels:
+    L0: "ref_pregain"
+    R0: "ref_postgain"
+
+phase2_aec_effectiveness:
+  commands:
+    - ["AUDIO_MGR_OP_PACKED", 1, 1]
+
+    # Left packed: Beam, MIC0 postgain, MIC1 postgain
+    - ["AUDIO_MGR_OP_L",      6, 3]   # beam_autoselect
+    - ["AUDIO_MGR_OP_L_PK1",  3, 0]   # mic0_postgain
+    - ["AUDIO_MGR_OP_L_PK2",  3, 1]   # mic1_postgain
+
+    # Right packed: Ref postgain, Resid mic0, Resid mic1
+    - ["AUDIO_MGR_OP_R",     12, 0]   # ref_postgain
+    - ["AUDIO_MGR_OP_R_PK1",  7, 0]   # resid_mic0
+    - ["AUDIO_MGR_OP_R_PK2",  7, 1]   # resid_mic1
+
+  labels:
+    L0: "beam_autoselect"
+    L1: "mic0_postgain"
+    L2: "mic1_postgain"
+    R0: "ref_postgain"
+    R1: "resid_mic0"
+    R2: "resid_mic1"
+
+
+phase3_agc_noise_attns:
+  commands:
+    - ["AUDIO_MGR_OP_PACKED", 1, 1]
+    - ["AUDIO_MGR_OP_L",      6, 3]
+    - ["AUDIO_MGR_OP_L_PK1",  6, 2]
+    - ["AUDIO_MGR_OP_L_PK2",  3, 0]
+    - ["AUDIO_MGR_OP_R",     12, 0]
+    - ["AUDIO_MGR_OP_R_PK1",  7, 0]
+    - ["AUDIO_MGR_OP_R_PK2",  3, 1]
+  labels:
+    L0: "beam_autoselect"
+    L1: "beam_free_running"
+    L2: "mic0_postgain"
+    R0: "ref_postgain"
+    R1: "resid_mic0"
+    R2: "mic1_postgain"
