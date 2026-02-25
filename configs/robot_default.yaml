@@ -1,7 +1,7 @@
 device:
-  xvf_host_path: "/usr/local/bin/xvf_host"
+  xvf_host_path: "/home/mohammed/Documents/host_xvf_control/build/xvf_host"
   protocol: "usb"
-  sudo: true
+  sudo: false
 
 io:
   physical_fs_hz: 48000
@@ -10,8 +10,9 @@ io:
 
 audio:
   # ALSA device names on the machine running tuning
-  playback_device: "default"
-  capture_device: "default"
+  # XVF3800 is card 1, device 0 on this host
+  playback_device: "hw:2,0"
+  capture_device: "hw:2,0"
 
   # reference injection mapping INTO YOUR SYSTEM INPUT STREAM
   # Example: put reference in Left physical channel, logical slot 0
@@ -20,6 +21,10 @@ audio:
 tuning:
   ref_peak_target_dbfs: -1.5
   ref_peak_max_dbfs: -0.5
+  # Safety gate for phase1 step1: if ref pre-gain peak is below this, stop and fix routing/mixer first.
+  ref_pre_min_peak_dbfs: -20.0
+  # Clamp huge gain suggestions if measurements are abnormal.
+  ref_gain_max_suggestion_x: 8.0
   mic_margin_db: 6.0
   silence_level_margin_percent: 2.0
 
