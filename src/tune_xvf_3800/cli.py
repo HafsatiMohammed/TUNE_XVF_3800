@@ -15,6 +15,7 @@ def main():
     ap.add_argument("--assets", default="assets/generated/N3")  # put your 16k mono files here
     ap.add_argument("--runs", default="runs")
     ap.add_argument("cmd", choices=["phase1", "phase2", "phase3"])
+    ap.add_argument("--step", type=int, choices=[1,2,3,4], help="Phase1 only: run a single step")
     args = ap.parse_args()
 
     cfg = load_yaml(args.robot)
@@ -34,7 +35,7 @@ def main():
     assets_dir = Path(args.assets)
 
     if args.cmd == "phase1":
-        run_phase1_gain_delay(ctx, assets_dir)
+        run_phase1_gain_delay(ctx, assets_dir, step=args.step)
     elif args.cmd == "phase2":
         run_phase2_aec_effectiveness(ctx, assets_dir)
     elif args.cmd == "phase3":

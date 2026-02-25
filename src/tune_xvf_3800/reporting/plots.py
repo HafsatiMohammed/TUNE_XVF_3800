@@ -85,3 +85,54 @@ def plot_correlation(lags: np.ndarray, corr: np.ndarray, *, band: Tuple[int, int
     plt.tight_layout()
     plt.savefig(out_path, dpi=150)
     plt.close()
+
+
+def plot_ref_pre_post_compare(
+    ref_pre: np.ndarray,
+    ref_post: np.ndarray,
+    *,
+    target_peak_dbfs: float,
+    max_peak_dbfs: float,
+    pre_peak_dbfs: float,
+    pre_rms_dbfs: float,
+    post_peak_dbfs: float,
+    post_rms_dbfs: float,
+    out_path: Path,
+    max_samples: int = 32000,
+) -> None:
+    _mkdir(out_path)
+
+    pre = np.asarray(ref_pre, dtype=np.float32).flatten()[:max_samples]
+    post = np.asarray(ref_post, dtype=np.float32).flatten()[:max_samples]
+    n = min(pre.size, post.size)
+    pre = pre[:n]
+    post = post[:n]
+    t = np.arange(n)
+
+    fig, axs = plt.subplots(2, 1, sharex=True, figsize=(10, 6))
+
+    axs[0].plot(t, pre, color='tab:blue')
+    axs[0].set_title(f"ref_pre  peak={pre_peak_dbfs:.2f} dBFS  rms={pre_rms_dbfs:.2f} dBFS")
+    axs[0].set_ylabel('Amplitude')
+    axs[0].grid(alpha=0.2)
+
+    axs[1].plot(t, post, color='tab:orange')
+    axs[1].set_title(f"ref_post peak={post_peak_dbfs:.2f} dBFS  rms={post_rms_dbfs:.2f} dBFS")
+    axs[1].set_ylabel('Amplitude')
+    axs[1].set_xlabel('Sample (logical)')
+    axs[1].grid(alpha=0.2)
+
+    for db in [0.0, max_peak_dbfs, target_peak_dbfs]:
+        amp = 10 ** (db / 20.0)
+        axs[1].axhline(+amp, linestyle='--', alpha=0.7)
+        axs[1].axhline(-amp, linestyle='--', alpha=0.7)
+
+    yabs = max(1e-6, float(max(np.max(np.abs(pre)) if pre.size else 0.0, np.max(np.abs(post)) if post.size else 0.0)))
+    ylim = min(1.05, max(0.05, yabs * 1.2))
+    axs[0].set_ylim(-ylim, ylim)
+    axs[1].set_ylim(-ylim, ylim)
+
+    plt.suptitle('Phase1 Step1: Reference pre/post comparison')
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close(fig)

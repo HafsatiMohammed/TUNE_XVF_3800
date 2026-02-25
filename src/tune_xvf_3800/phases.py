@@ -96,110 +96,109 @@ def _apply_decision(ctx, d) -> bool:
 # PHASE 1 (auto-iterate)
 # -------------------------
 
-def run_phase1_gain_delay(ctx, assets_dir: Path) -> None:
+def run_phase1_gain_delay(ctx, assets_dir: Path, step: int | None = None) -> None:
+    """
+    Phase 1 in MANUAL mode (no automatic parameter changes).
+    Optional: run a single step with step=1..4.
+    """
     phase_dir = ctx.run_dir / "phase1_gain_delay"
     (phase_dir / "decisions").mkdir(parents=True, exist_ok=True)
 
     pf = int(ctx.cfg["io"]["pack_factor"])
     fs_log = int(ctx.cfg["io"]["logical_fs_hz"])
 
+    if step is not None and step not in (1, 2, 3, 4):
+        raise ValueError("phase1 step must be one of: 1,2,3,4")
+
+    def _run_step(n: int) -> bool:
+        return (step is None) or (step == n)
+
     # stimuli
     wn = _load_mono(assets_dir / "white_noise_0dbfs_16k_mono.wav", fs_log)
     sil = _load_mono(assets_dir / "silence_16k_mono.wav", fs_log)
     corr = _load_mono(assets_dir / "silence_white_noise_silence_16k_mono.wav", fs_log)
 
-    # ---- Step 1: REF_GAIN
-    preset = ctx.mux_presets["phase1_ref_pre_post_only"]
-    apply_mux(ctx.host, preset)
+    if _run_step(1):
+        print("[PHASE1][STEP 1/4] REF_GAIN analysis")
+        preset = ctx.mux_presets["phase1_ref_pre_post_only"]
+        apply_mux(ctx.host, preset)
 
-    for it in range(5):
-        play_wav = phase_dir / f"01_refgain_play_{it}.wav"
-        cap_wav = phase_dir / f"01_refgain_cap_{it}.wav"
+        play_wav = phase_dir / "01_refgain_play.wav"
+        cap_wav = phase_dir / "01_refgain_cap.wav"
         dur = _make_ref_playback_wav(ctx, wn, play_wav)
-
         _play_and_record(ctx, playback_wav=play_wav, capture_wav=cap_wav, seconds=dur)
 
-        sigs = unpack_capture_to_logical(str(cap_wav), pack_factor=pf, labels=preset.labels, out_dir=phase_dir / f"signals_refgain_{it}")
-        ref_pre = sigs["ref_pregain"]
-        ref_post = sigs["ref_postgain"]
-
+        sigs = unpack_capture_to_logical(str(cap_wav), pack_factor=pf, labels=preset.labels, out_dir=phase_dir / "signals_refgain")
         d = analyze_ref_gain(
-            ref_pre=ref_pre,
-            ref_post=ref_post,
+            ref_pre=sigs["ref_pregain"],
+            ref_post=sigs["ref_postgain"],
             ref_gain_current=ctx.host.get_float(ctx.cfg["params"]["ref_gain_param"]),
             target_peak_dbfs=float(ctx.cfg["tuning"]["ref_peak_target_dbfs"]),
             max_peak_dbfs=float(ctx.cfg["tuning"]["ref_peak_max_dbfs"]),
             out_dir=phase_dir / "plots" / "ref_gain",
+            min_ref_pre_peak_dbfs=float(ctx.cfg.get("tuning", {}).get("ref_pre_min_peak_dbfs", -20.0)),
+            max_gain_suggestion=float(ctx.cfg.get("tuning", {}).get("ref_gain_max_suggestion_x", 8.0)),
         )
         save_json(phase_dir / "decisions" / "01_ref_gain.json", d.to_dict())
+        print(f"[PHASE1][STEP 1/4] status={d.status} recommendation={d.recommendation}")
 
-        if d.status == "PASS":
-            break
-        changed = _apply_decision(ctx, d)
-        if not changed:
-            break
-
-    # ---- Step 2+4 preset (mics + ref_post + ref_loopback)
+    # use phase1_gain_delay preset for steps 2/3/4
     preset = ctx.mux_presets["phase1_gain_delay"]
-    apply_mux(ctx.host, preset)
 
-    # ---- Step 2: MIC_GAIN
-    for it in range(4):
-        play_wav = phase_dir / f"02_micgain_play_{it}.wav"
-        cap_wav = phase_dir / f"02_micgain_cap_{it}.wav"
+    if _run_step(2):
+        print("[PHASE1][STEP 2/4] MIC_GAIN analysis")
+        apply_mux(ctx.host, preset)
+
+        play_wav = phase_dir / "02_micgain_play.wav"
+        cap_wav = phase_dir / "02_micgain_cap.wav"
         dur = _make_ref_playback_wav(ctx, wn, play_wav)
         _play_and_record(ctx, playback_wav=play_wav, capture_wav=cap_wav, seconds=dur)
 
-        sigs = unpack_capture_to_logical(str(cap_wav), pack_factor=pf, labels=preset.labels, out_dir=phase_dir / f"signals_micgain_{it}")
+        sigs = unpack_capture_to_logical(str(cap_wav), pack_factor=pf, labels=preset.labels, out_dir=phase_dir / "signals_micgain")
         mics = {k: sigs[k] for k in ["mic0_postgain", "mic1_postgain", "mic2_postgain", "mic3_postgain"]}
-        ref_post = sigs["ref_postgain"]
-
         d = analyze_mic_gain(
             mics_post=mics,
-            ref_post=ref_post,
+            ref_post=sigs["ref_postgain"],
             mic_gain_current=ctx.host.get_float(ctx.cfg["params"]["mic_gain_param"]),
             required_margin_db=float(ctx.cfg["tuning"]["mic_margin_db"]),
             out_dir=phase_dir / "plots" / "mic_gain",
         )
         save_json(phase_dir / "decisions" / "02_mic_gain.json", d.to_dict())
+        print(f"[PHASE1][STEP 2/4] status={d.status} recommendation={d.recommendation}")
 
-        if d.status == "PASS":
-            break
-        changed = _apply_decision(ctx, d)
-        if not changed:
-            break
+    if _run_step(3):
+        print("[PHASE1][STEP 3/4] AEC_AECSILENCELEVEL analysis")
+        apply_mux(ctx.host, preset)
 
-    # ---- Step 3: AECSILENCELEVEL
-    play_wav = phase_dir / "03_silence_play.wav"
-    cap_wav = phase_dir / "03_silence_cap.wav"
-    dur = _make_ref_playback_wav(ctx, sil, play_wav)
-    _play_and_record(ctx, playback_wav=play_wav, capture_wav=cap_wav, seconds=dur)
+        play_wav = phase_dir / "03_silence_play.wav"
+        cap_wav = phase_dir / "03_silence_cap.wav"
+        dur = _make_ref_playback_wav(ctx, sil, play_wav)
+        _play_and_record(ctx, playback_wav=play_wav, capture_wav=cap_wav, seconds=dur)
 
-    sigs = unpack_capture_to_logical(str(cap_wav), pack_factor=pf, labels=preset.labels, out_dir=phase_dir / "signals_silence")
-    d = analyze_aec_silencelevel(
-        ref_post_silence=sigs["ref_postgain"],
-        logical_fs_hz=fs_log,
-        margin_percent=float(ctx.cfg["tuning"]["silence_level_margin_percent"]),
-        out_dir=phase_dir / "plots" / "silence_level",
-    )
-    save_json(phase_dir / "decisions" / "03_aec_silencelevel.json", d.to_dict())
-    # apply directly (always a computed set)
-    ctx.host.set_param(ctx.cfg["params"]["aec_silence_param"], f"{float(d.suggested_value):.12g}")
+        sigs = unpack_capture_to_logical(str(cap_wav), pack_factor=pf, labels=preset.labels, out_dir=phase_dir / "signals_silence")
+        d = analyze_aec_silencelevel(
+            ref_post_silence=sigs["ref_postgain"],
+            logical_fs_hz=fs_log,
+            margin_percent=float(ctx.cfg["tuning"]["silence_level_margin_percent"]),
+            out_dir=phase_dir / "plots" / "silence_level",
+        )
+        save_json(phase_dir / "decisions" / "03_aec_silencelevel.json", d.to_dict())
+        print(f"[PHASE1][STEP 3/4] status={d.status} recommendation={d.recommendation} suggested={d.suggested_value}")
 
-    # ---- Step 4: SYS_DELAY (iterate)
-    for it in range(int(ctx.cfg["tuning"]["sys_delay_max_iters"])):
-        play_wav = phase_dir / f"04_sysdelay_play_{it}.wav"
-        cap_wav = phase_dir / f"04_sysdelay_cap_{it}.wav"
+    if _run_step(4):
+        print("[PHASE1][STEP 4/4] SYS_DELAY analysis")
+        apply_mux(ctx.host, preset)
+
+        play_wav = phase_dir / "04_sysdelay_play.wav"
+        cap_wav = phase_dir / "04_sysdelay_cap.wav"
         dur = _make_ref_playback_wav(ctx, corr, play_wav)
         _play_and_record(ctx, playback_wav=play_wav, capture_wav=cap_wav, seconds=dur)
 
-        sigs = unpack_capture_to_logical(str(cap_wav), pack_factor=pf, labels=preset.labels, out_dir=phase_dir / f"signals_sysdelay_{it}")
+        sigs = unpack_capture_to_logical(str(cap_wav), pack_factor=pf, labels=preset.labels, out_dir=phase_dir / "signals_sysdelay")
         mics = {k: sigs[k] for k in ["mic0_postgain", "mic1_postgain", "mic2_postgain", "mic3_postgain"]}
-        ref_loop = sigs["ref_loopback"]
-
         d = analyze_sys_delay(
             mics_post=mics,
-            ref_loopback=ref_loop,
+            ref_loopback=sigs["ref_loopback"],
             logical_fs_hz=fs_log,
             sys_delay_current=ctx.host.get_int(ctx.cfg["params"]["sys_delay_param"]),
             target_samples=int(ctx.cfg["tuning"]["sys_delay_target_samples_logical"]),
@@ -207,21 +206,15 @@ def run_phase1_gain_delay(ctx, assets_dir: Path) -> None:
             out_dir=phase_dir / "plots" / "sys_delay",
         )
         save_json(phase_dir / "decisions" / "04_sys_delay.json", d.to_dict())
+        print(f"[PHASE1][STEP 4/4] status={d.status} recommendation={d.recommendation} suggested={d.suggested_int}")
 
-        if d.status == "PASS":
-            break
-        changed = _apply_decision(ctx, d)
-        if not changed:
-            break
-
-    # snapshot tuned values (device truth)
-    final = {
+    current = {
         "AUDIO_MGR_REF_GAIN": ctx.host.get_raw("AUDIO_MGR_REF_GAIN"),
         "AUDIO_MGR_MIC_GAIN": ctx.host.get_raw("AUDIO_MGR_MIC_GAIN"),
         "AEC_AECSILENCELEVEL": ctx.host.get_raw("AEC_AECSILENCELEVEL"),
         "AUDIO_MGR_SYS_DELAY": ctx.host.get_raw("AUDIO_MGR_SYS_DELAY"),
     }
-    save_json(phase_dir / "phase1_final_params.json", final)
+    save_json(phase_dir / "phase1_current_params.json", current)
 
     build_report(ctx.run_dir)
 
@@ -276,7 +269,7 @@ def run_phase2_aec_effectiveness(ctx, assets_dir: Path) -> None:
 # PHASE 3 (talk/silence cues + objective usability decisions)
 # -------------------------
 
-def run_phase3_agc_noise_attns(ctx) -> None:
+def run_phase3_agc_noise_attns(ctx, assets_dir: Path | None = None) -> None:
     phase_dir = ctx.run_dir / "phase3_agc_noise_attns"
     (phase_dir / "decisions").mkdir(parents=True, exist_ok=True)
 

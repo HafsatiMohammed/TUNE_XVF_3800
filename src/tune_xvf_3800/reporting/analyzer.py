@@ -12,10 +12,10 @@ from ..metrics.delay import estimate_delay
 from ..metrics.echo import erle_db, resid_to_mic_db, power_db
 from .segments import segment_indices
 from .plots import (
-    plot_waveform_with_dbfs_lines,
     plot_bar_with_threshold,
     plot_segments_rms,
     plot_correlation,
+    plot_ref_pre_post_compare,
 )
 
 
@@ -59,6 +59,8 @@ def analyze_ref_gain(
     target_peak_dbfs: float,
     max_peak_dbfs: float,
     out_dir: Path,
+    min_ref_pre_peak_dbfs: float = -20.0,
+    max_gain_suggestion: float = 8.0,
 ) -> Decision:
     out_dir.mkdir(parents=True, exist_ok=True)
     plots = []
@@ -66,14 +68,36 @@ def analyze_ref_gain(
     m_pre = compute_levels(ref_pre)
     m_post = compute_levels(ref_post)
 
-    p = out_dir / "ref_post_waveform.png"
-    plot_waveform_with_dbfs_lines(
+    p = out_dir / "ref_pre_post_compare.png"
+    plot_ref_pre_post_compare(
+        ref_pre,
         ref_post,
-        title="Reference post-gain (logical)",
-        lines_dbfs=[0.0, max_peak_dbfs, target_peak_dbfs],
+        target_peak_dbfs=target_peak_dbfs,
+        max_peak_dbfs=max_peak_dbfs,
+        pre_peak_dbfs=m_pre.peak_dbfs,
+        pre_rms_dbfs=m_pre.rms_dbfs,
+        post_peak_dbfs=m_post.peak_dbfs,
+        post_rms_dbfs=m_post.rms_dbfs,
         out_path=p,
     )
     plots.append(str(p))
+
+    # Safety gate: if reference pre-gain level is too low, this is likely a routing/mixer/path issue.
+    # Do not suggest extreme REF_GAIN jumps in this case.
+    if m_pre.peak_dbfs < min_ref_pre_peak_dbfs:
+        return Decision(
+            name="AUDIO_MGR_REF_GAIN",
+            status="FAIL",
+            reason=(
+                f"Reference injection path appears too low before gain "
+                f"(ref_pre peak={m_pre.peak_dbfs:.2f} dBFS < {min_ref_pre_peak_dbfs:.2f} dBFS). "
+                "Check ALSA device routing, mixer levels, packed slot mapping, and reference path before tuning REF_GAIN."
+            ),
+            recommendation="keep",
+            suggested_value=float(ref_gain_current),
+            metrics={"ref_pre": asdict(m_pre), "ref_post": asdict(m_post)},
+            plot_files=plots,
+        )
 
     if m_post.clipped or (m_post.peak_dbfs > max_peak_dbfs):
         delta_db = target_peak_dbfs - m_post.peak_dbfs
@@ -91,6 +115,8 @@ def analyze_ref_gain(
     if m_post.peak_dbfs < target_peak_dbfs:
         delta_db = target_peak_dbfs - m_post.peak_dbfs
         suggested = ref_gain_current * _gain_ratio_db(delta_db)
+        # Clamp large suggestions to avoid runaway from abnormal measurements
+        suggested = min(suggested, max(ref_gain_current * max_gain_suggestion, ref_gain_current))
         return Decision(
             name="AUDIO_MGR_REF_GAIN",
             status="FAIL",

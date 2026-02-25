@@ -1,0 +1,2 @@
+[console_scripts]
+tune-xvf = tune_xvf_3800.cli:main
