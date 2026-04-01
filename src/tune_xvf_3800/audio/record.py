@@ -10,6 +10,8 @@ def _arecord_duration_arg(seconds: float) -> str:
 
 
 def build_arecord_cmd(out_wav: str, *, device: str, fs_hz: int, seconds: float, channels: int = 2) -> List[str]:
+
+    print(f'------------------------ arecord -D {device} -f S16_LE -r { str(fs_hz)} -c {str(channels)} -d { _arecord_duration_arg(seconds)} {out_wav} ------------------------')
     return [
         "arecord",
         "-D", device,
@@ -22,6 +24,9 @@ def build_arecord_cmd(out_wav: str, *, device: str, fs_hz: int, seconds: float, 
 
 
 def record_arecord(out_wav: str, *, device: str, fs_hz: int, seconds: float, channels: int = 2) -> None:
+    
+    
+    print(f'------------------------ arecord -D {device} -f S16_LE -r { str(fs_hz)} -c {str(channels)} -d { _arecord_duration_arg(seconds)} {out_wav} ------------------------')
     cmd = [
         "arecord",
         "-D", device,

@@ -42,3 +42,8 @@ def main():
         run_phase3_agc_noise_attns(ctx, assets_dir)
 
     print(f"\nDone. Outputs in: {run_dir}\n")
+
+
+
+if __name__ == "__main__":
+    main()

@@ -52,7 +52,7 @@ def _gain_ratio_db(delta_db: float) -> float:
 # --------------------------
 
 def analyze_ref_gain(
-    *,
+
     ref_pre: np.ndarray,
     ref_post: np.ndarray,
     ref_gain_current: float,
@@ -63,24 +63,24 @@ def analyze_ref_gain(
     max_gain_suggestion: float = 8.0,
 ) -> Decision:
     out_dir.mkdir(parents=True, exist_ok=True)
-    plots = []
+    #plots = []
 
     m_pre = compute_levels(ref_pre)
     m_post = compute_levels(ref_post)
 
     p = out_dir / "ref_pre_post_compare.png"
-    plot_ref_pre_post_compare(
-        ref_pre,
-        ref_post,
-        target_peak_dbfs=target_peak_dbfs,
-        max_peak_dbfs=max_peak_dbfs,
-        pre_peak_dbfs=m_pre.peak_dbfs,
-        pre_rms_dbfs=m_pre.rms_dbfs,
-        post_peak_dbfs=m_post.peak_dbfs,
-        post_rms_dbfs=m_post.rms_dbfs,
-        out_path=p,
-    )
-    plots.append(str(p))
+    # plot_ref_pre_post_compare(
+    #     ref_pre,
+    #     ref_post,
+    #     target_peak_dbfs=target_peak_dbfs,
+    #     max_peak_dbfs=max_peak_dbfs,
+    #     pre_peak_dbfs=m_pre.peak_dbfs,
+    #     pre_rms_dbfs=m_pre.rms_dbfs,
+    #     post_peak_dbfs=m_post.peak_dbfs,
+    #     post_rms_dbfs=m_post.rms_dbfs,
+    #     out_path=p,
+    # )
+    # plots.append(str(p))
 
     # Safety gate: if reference pre-gain level is too low, this is likely a routing/mixer/path issue.
     # Do not suggest extreme REF_GAIN jumps in this case.
@@ -96,7 +96,7 @@ def analyze_ref_gain(
             recommendation="keep",
             suggested_value=float(ref_gain_current),
             metrics={"ref_pre": asdict(m_pre), "ref_post": asdict(m_post)},
-            plot_files=plots,
+            #plot_files=plots,
         )
 
     if m_post.clipped or (m_post.peak_dbfs > max_peak_dbfs):
@@ -109,7 +109,7 @@ def analyze_ref_gain(
             recommendation="decrease",
             suggested_value=float(suggested),
             metrics={"ref_pre": asdict(m_pre), "ref_post": asdict(m_post)},
-            plot_files=plots,
+            #plot_files=plots,
         )
 
     if m_post.peak_dbfs < target_peak_dbfs:
@@ -124,7 +124,7 @@ def analyze_ref_gain(
             recommendation="increase",
             suggested_value=float(suggested),
             metrics={"ref_pre": asdict(m_pre), "ref_post": asdict(m_post)},
-            plot_files=plots,
+            #plot_files=plots,
         )
 
     return Decision(
@@ -134,7 +134,7 @@ def analyze_ref_gain(
         recommendation="keep",
         suggested_value=float(ref_gain_current),
         metrics={"ref_pre": asdict(m_pre), "ref_post": asdict(m_post)},
-        plot_files=plots,
+        #plot_files=plots,
     )
 
 
@@ -147,7 +147,7 @@ def analyze_mic_gain(
     out_dir: Path,
 ) -> Decision:
     out_dir.mkdir(parents=True, exist_ok=True)
-    plots = []
+    #plots = []
 
     ref_m = compute_levels(ref_post)
     mic_m = {k: compute_levels(v) for k, v in mics_post.items()}
@@ -157,14 +157,14 @@ def analyze_mic_gain(
     worst_margin = float(margins[worst])
 
     p = out_dir / "mic_margins.png"
-    plot_bar_with_threshold(
-        margins,
-        threshold=required_margin_db,
-        title="Mic peak margin (ref_peak - mic_peak)",
-        ylabel="Margin (dB)",
-        out_path=p,
-    )
-    plots.append(str(p))
+    # plot_bar_with_threshold(
+    #     margins,
+    #     threshold=required_margin_db,
+    #     title="Mic peak margin (ref_peak - mic_peak)",
+    #     ylabel="Margin (dB)",
+    #     out_path=p,
+    # )
+    # plots.append(str(p))
 
     if worst_margin < required_margin_db:
         needed_db = required_margin_db - worst_margin
@@ -181,7 +181,7 @@ def analyze_mic_gain(
                 "margins_db": margins,
                 "worst_mic": worst,
             },
-            plot_files=plots,
+            #plot_files=plots,
         )
 
     return Decision(
@@ -196,7 +196,7 @@ def analyze_mic_gain(
             "margins_db": margins,
             "worst_mic": worst,
         },
-        plot_files=plots,
+        #plot_files=plots,
     )
 
 
@@ -208,19 +208,19 @@ def analyze_aec_silencelevel(
     out_dir: Path,
 ) -> Decision:
     out_dir.mkdir(parents=True, exist_ok=True)
-    plots = []
+    #plots = []
 
     thr = estimate_silence_level_for_aec(ref_post_silence, fs_hz=logical_fs_hz, safety_margin_percent=margin_percent)
 
     p = out_dir / "ref_post_silence_rms.png"
-    plot_segments_rms(
-        ref_post_silence,
-        fs_hz=logical_fs_hz,
-        segments={"silence": (0.0, -1.0)},
-        title="Ref post during injected silence (RMS envelope)",
-        out_path=p,
-    )
-    plots.append(str(p))
+    # plot_segments_rms(
+    #     ref_post_silence,
+    #     fs_hz=logical_fs_hz,
+    #     segments={"silence": (0.0, -1.0)},
+    #     title="Ref post during injected silence (RMS envelope)",
+    #     out_path=p,
+    # )
+    # plots.append(str(p))
 
     return Decision(
         name="AEC_AECSILENCELEVEL",
@@ -229,7 +229,7 @@ def analyze_aec_silencelevel(
         recommendation="keep",
         suggested_value=float(thr),
         metrics={"computed_threshold": float(thr), "margin_percent": float(margin_percent)},
-        plot_files=plots,
+        #plot_files=plots,
     )
 
 
@@ -244,7 +244,7 @@ def analyze_sys_delay(
     out_dir: Path,
 ) -> Decision:
     out_dir.mkdir(parents=True, exist_ok=True)
-    plots = []
+    #plots = []
 
     delays = {}
     worst_corr = None
@@ -260,14 +260,14 @@ def analyze_sys_delay(
 
     if worst_corr is not None:
         p = out_dir / "mic_ref_correlation.png"
-        plot_correlation(
-            worst_corr.lags,
-            worst_corr.corr,
-            band=(0, max_allowed_samples),
-            title="Mic vs Ref loopback correlation (band=causal & <= max)",
-            out_path=p,
-        )
-        plots.append(str(p))
+        # plot_correlation(
+        #     worst_corr.lags,
+        #     worst_corr.corr,
+        #     band=(0, max_allowed_samples),
+        #     title="Mic vs Ref loopback correlation (band=causal & <= max)",
+        #     out_path=p,
+        # )
+        # plots.append(str(p))
 
     # Decision & suggested new SYS_DELAY (negative preferred)
     if min_lag < 0:
@@ -282,7 +282,7 @@ def analyze_sys_delay(
             recommendation="decrease",  # more negative
             suggested_int=int(suggested),
             metrics={"delays_samples": delays, "worst_mic": worst_mic, "min_lag": min_lag},
-            plot_files=plots,
+            #plot_files=plots,
         )
 
     if min_lag > max_allowed_samples:
@@ -297,7 +297,7 @@ def analyze_sys_delay(
             recommendation="increase",  # less negative
             suggested_int=int(suggested),
             metrics={"delays_samples": delays, "worst_mic": worst_mic, "min_lag": min_lag},
-            plot_files=plots,
+            #plot_files=plots,
         )
 
     return Decision(
@@ -307,7 +307,7 @@ def analyze_sys_delay(
         recommendation="keep",
         suggested_int=int(sys_delay_current),
         metrics={"delays_samples": delays, "worst_mic": worst_mic, "min_lag": min_lag},
-        plot_files=plots,
+        #plot_files=plots,
     )
 
 
@@ -340,10 +340,10 @@ def analyze_phase2_echo(
     # plots: RMS envelopes with segment shading
     if "beam_autoselect" in signals:
         p = out_dir / "beam_rms_segments.png"
-        plot_segments_rms(signals["beam_autoselect"], logical_fs_hz, segments, title="Beam RMS with segments", out_path=p)
+        #plot_segments_rms(signals["beam_autoselect"], logical_fs_hz, segments, title="Beam RMS with segments", out_path=p)
     if "mic0_postgain" in signals:
         p = out_dir / "mic0_rms_segments.png"
-        plot_segments_rms(signals["mic0_postgain"], logical_fs_hz, segments, title="Mic0 RMS with segments", out_path=p)
+        #plot_segments_rms(signals["mic0_postgain"], logical_fs_hz, segments, title="Mic0 RMS with segments", out_path=p)
 
     # Compute objective echo metrics on far-end-only
     fe = idx["far_end_only_1"]
@@ -377,7 +377,7 @@ def analyze_phase2_echo(
             reason=f"Near-end presence too small: mic0 DT-FE = {near_end_presence_db:.1f} dB < {near_presence_min:.1f} dB. (Operator likely didn’t speak loud enough.)",
             recommendation="keep",
             metrics={"mic0_fe_db": mic0_fe_db, "mic0_dt_db": mic0_dt_db, "near_end_presence_db": near_end_presence_db},
-            plot_files=[str(out_dir / "mic0_rms_segments.png")],
+            #plot_files=[str(out_dir / "mic0_rms_segments.png")],
         ))
         # still continue; echo metrics may be valid but DT suppression metrics are not
 
@@ -388,7 +388,7 @@ def analyze_phase2_echo(
             reason=f"Near-end present: mic0 DT-FE = {near_end_presence_db:.1f} dB.",
             recommendation="keep",
             metrics={"near_end_presence_db": near_end_presence_db},
-            plot_files=[str(out_dir / "mic0_rms_segments.png")],
+            #plot_files=[str(out_dir / "mic0_rms_segments.png")],
         ))
 
     # Decision B: Echo effectiveness (ERLE / residual-to-mic)
@@ -430,7 +430,7 @@ def analyze_phase2_echo(
                 reason=f"Beam rises in DT: {beam_rise_db:.1f} dB (>= {dt_beam_rise_min}).",
                 recommendation="keep",
                 metrics={"beam_rise_db": beam_rise_db},
-                plot_files=[str(out_dir / "beam_rms_segments.png")],
+                #plot_files=[str(out_dir / "beam_rms_segments.png")],
             ))
         else:
             decisions.append(Decision(
@@ -442,7 +442,7 @@ def analyze_phase2_echo(
                     "beam_rise_db": beam_rise_db,
                     "recommend": "Decrease PP_DTSENSITIVE or reduce PP_GAMMA_E/ETAIL/ENL; if far-end false-detected, adjust PP_MGSCALE(min)."
                 },
-                plot_files=[str(out_dir / "beam_rms_segments.png")],
+                #plot_files=[str(out_dir / "beam_rms_segments.png")],
             ))
 
     return decisions
@@ -473,7 +473,7 @@ def analyze_phase3_usability(
 
     # plots
     p = out_dir / "beam_rms_segments.png"
-    plot_segments_rms(beam, logical_fs_hz, segments, title="Beam RMS with talk/silence segments", out_path=p)
+    #plot_segments_rms(beam, logical_fs_hz, segments, title="Beam RMS with talk/silence segments", out_path=p)
 
     # compute objective metrics
     talk1 = beam[idx["talk1"]]
@@ -501,7 +501,7 @@ def analyze_phase3_usability(
             reason=f"Speech RMS OK: talk1={speech_rms_db1:.1f}, talk2={speech_rms_db2:.1f} target={target_speech}±{tol}.",
             recommendation="keep",
             metrics={"talk1_rms_dbfs": speech_rms_db1, "talk2_rms_dbfs": speech_rms_db2},
-            plot_files=[str(p)],
+            #plot_files=[str(p)],
         ))
     else:
         rec = "increase" if (speech_rms_db1 < target_speech - tol) else "decrease"
@@ -515,7 +515,7 @@ def analyze_phase3_usability(
                 "talk2_rms_dbfs": speech_rms_db2,
                 "recommend": "Adjust PP_AGCDESIREDLEVEL (and then set PP_AGCGAIN default after convergence)."
             },
-            plot_files=[str(p)],
+            #plot_files=[str(p)],
         ))
 
     # Decision B: pause noise
@@ -526,7 +526,7 @@ def analyze_phase3_usability(
             reason=f"Pause noise OK: {pause_noise_db:.1f} dBFS <= {pause_max:.1f}.",
             recommendation="keep",
             metrics={"pause_noise_rms_dbfs": pause_noise_db},
-            plot_files=[str(p)],
+            #plot_files=[str(p)],
         ))
     else:
         decisions.append(Decision(
@@ -538,7 +538,7 @@ def analyze_phase3_usability(
                 "pause_noise_rms_dbfs": pause_noise_db,
                 "recommend": "Increase attenuation in silence: PP_ATTNS_NOMINAL/SLOPE; or reduce PP_AGCMAXGAIN; or lower PP_MIN_NS (more stationary noise suppression)."
             },
-            plot_files=[str(p)],
+            #plot_files=[str(p)],
         ))
 
     # Decision C: pumping (AGC/ATTNS interaction)

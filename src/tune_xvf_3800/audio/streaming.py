@@ -27,14 +27,16 @@ def play_and_record_with_cues(
     record_start_delay_s: float = 0.2,
     timeout_s: Optional[float] = None,
 ) -> None:
+    print(f'------------------play command {aplay_cmd}---------------')
+
     rec = subprocess.Popen(arecord_cmd)
     time.sleep(record_start_delay_s)
-
     t0 = time.time()
     cue_thread = threading.Thread(target=_run_cues, args=(cues, t0), daemon=True)
     cue_thread.start()
-
+    
     play = subprocess.Popen(aplay_cmd)
+    
     try:
         play.wait(timeout=timeout_s)
         rec.wait(timeout=timeout_s)

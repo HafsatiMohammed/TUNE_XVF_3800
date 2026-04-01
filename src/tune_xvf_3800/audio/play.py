@@ -5,7 +5,7 @@ from typing import List
 from .io import write_wav
 
 def play_aplay(wav_path: str, *, device: str) -> None:
-    cmd = ["aplay", "-D", device, wav_path]
+    cmd = ["play", wav_path]
     subprocess.check_call(cmd)
 
 def play_array_via_aplay(tmp_wav_path: str, x: np.ndarray, fs: int, *, device: str) -> None:
@@ -14,4 +14,4 @@ def play_array_via_aplay(tmp_wav_path: str, x: np.ndarray, fs: int, *, device: s
 
 
 def build_aplay_cmd(wav_path: str, *, device: str) -> List[str]:
-    return ["aplay", "-D", device, wav_path]
+    return ["play", wav_path]
